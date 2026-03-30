@@ -1,0 +1,114 @@
+{
+  "entities": {
+    "FarmerProfile": {
+      "title": "Farmer Profile",
+      "description": "User profile for a farmer",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "phone": { "type": "string" },
+        "location": { "type": "string" },
+        "county": { "type": "string" },
+        "subCounty": { "type": "string" },
+        "ward": { "type": "string" },
+        "crops": { "type": "array", "items": { "$ref": "Crop" } },
+        "farmSize": { "type": "number" },
+        "isPremium": { "type": "boolean" },
+        "role": { "type": "string", "enum": ["admin", "user"] },
+        "completeness": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "name", "email"]
+    },
+    "Crop": {
+      "title": "Crop",
+      "description": "A crop grown by a farmer",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "stage": { "type": "string" },
+        "health": { "type": "number" },
+        "location": { "type": "string" },
+        "lastWatered": { "type": "string" }
+      }
+    },
+    "MarketPrice": {
+      "title": "Market Price",
+      "description": "Current market price for a crop",
+      "type": "object",
+      "properties": {
+        "crop": { "type": "string" },
+        "market": { "type": "string" },
+        "price": { "type": "number" },
+        "unit": { "type": "string" },
+        "category": { "type": "string" },
+        "trend": { "type": "string", "enum": ["up", "down"] },
+        "change": { "type": "string" },
+        "verified": { "type": "boolean" },
+        "upvotes": { "type": "number" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      }
+    },
+    "PestAlert": {
+      "title": "Pest Alert",
+      "description": "Alert about pests in a specific location",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "severity": { "type": "string", "enum": ["low", "moderate", "high"] },
+        "description": { "type": "string" },
+        "location": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      }
+    },
+    "ChatMessage": {
+      "title": "Chat Message",
+      "description": "Message between users or admin",
+      "type": "object",
+      "properties": {
+        "senderId": { "type": "string" },
+        "receiverId": { "type": "string" },
+        "text": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "read": { "type": "boolean" }
+      }
+    },
+    "Transaction": {
+      "title": "Transaction",
+      "description": "A payment or transaction record",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "amount": { "type": "number" },
+        "type": { "type": "string" },
+        "status": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      }
+    }
+  },
+  "firestore": {
+    "/users/{uid}": {
+      "schema": "FarmerProfile",
+      "description": "User profiles"
+    },
+    "/marketPrices/{id}": {
+      "schema": "MarketPrice",
+      "description": "Market prices"
+    },
+    "/pestAlerts/{id}": {
+      "schema": "PestAlert",
+      "description": "Pest alerts"
+    },
+    "/messages/{id}": {
+      "schema": "ChatMessage",
+      "description": "Chat messages"
+    },
+    "/transactions/{id}": {
+      "schema": "Transaction",
+      "description": "Transaction records"
+    }
+  }
+}
