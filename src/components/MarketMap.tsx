@@ -1,13 +1,6 @@
-import React, { useState, useCallback } from 'react';
-import { APIProvider, Map, AdvancedMarker, Pin, InfoWindow, useAdvancedMarkerRef } from '@vis.gl/react-google-maps';
-import { X, MapPin, TrendingUp, TrendingDown, Navigation } from 'lucide-react';
-
-const API_KEY =
-  process.env.GOOGLE_MAPS_PLATFORM_KEY ||
-  (import.meta as any).env?.VITE_GOOGLE_MAPS_PLATFORM_KEY ||
-  (globalThis as any).GOOGLE_MAPS_PLATFORM_KEY ||
-  '';
-const hasValidKey = Boolean(API_KEY) && API_KEY !== 'YOUR_API_KEY';
+import React, { useState, useMemo } from 'react';
+import { X, MapPin, Filter } from 'lucide-react';
+import { KENYA_LOCATIONS, County, SubCounty } from '../data/locations';
 
 interface Market {
   id: string;
@@ -25,141 +18,147 @@ interface Market {
 interface MarketMapProps {
   markets: Market[];
   onClose: () => void;
-  initialSelectedId?: string;
 }
 
-export const MarketMap: React.FC<MarketMapProps> = ({ markets, onClose, initialSelectedId }) => {
-  const [selectedMarket, setSelectedMarket] = useState<Market | null>(
-    markets.find(m => m.id === initialSelectedId) || null
-  );
+export const MarketMap: React.FC<MarketMapProps> = ({ markets, onClose }) => {
+  const [selectedCounty, setSelectedCounty] = useState<County | null>(null);
+  const [selectedSubCounty, setSelectedSubCounty] = useState<SubCounty | null>(null);
 
-  if (!hasValidKey) {
-    return (
-      <div className="fixed inset-0 z-[100] bg-white flex items-center justify-center p-6">
-        <div className="max-w-md w-full text-center space-y-6">
-          <div className="w-20 h-20 bg-emerald-100 text-emerald-600 rounded-3xl flex items-center justify-center mx-auto shadow-xl shadow-emerald-100">
-            <MapPin size={40} />
-          </div>
-          <h2 className="text-3xl font-black text-stone-900 tracking-tighter">Google Maps API Key Required</h2>
-          <div className="text-left space-y-4 bg-stone-50 p-6 rounded-3xl border border-stone-100">
-            <p className="text-sm font-bold text-stone-600">To enable the market locator, please add your Google Maps API key:</p>
-            <ol className="text-xs font-bold text-stone-500 space-y-3 list-decimal pl-4">
-              <li>Get an API key from the <a href="https://console.cloud.google.com/google/maps-apis/credentials" target="_blank" rel="noopener" className="text-emerald-600 underline">Google Cloud Console</a>.</li>
-              <li>Open <strong>Settings</strong> (⚙️ gear icon) in AI Studio.</li>
-              <li>Go to <strong>Secrets</strong> and add <code>GOOGLE_MAPS_PLATFORM_KEY</code>.</li>
-              <li>Paste your key and press Enter.</li>
-            </ol>
-          </div>
-          <button 
-            onClick={onClose}
-            className="w-full bg-stone-900 text-white py-4 rounded-2xl font-black text-sm shadow-xl"
-          >
-            Go Back
-          </button>
-        </div>
-      </div>
-    );
-  }
+  // Filtered markets logic
+  const filteredMarkets = useMemo(() => {
+    if (!selectedCounty) return markets;
+
+    const countyName = selectedCounty.name.toLowerCase();
+    return markets.filter(market => {
+      const matchesCounty = market.location.toLowerCase().includes(countyName);
+      const matchesSubCounty = selectedSubCounty 
+        ? market.location.toLowerCase().includes(selectedSubCounty.name.toLowerCase())
+        : true;
+      
+      return matchesCounty && matchesSubCounty;
+    });
+  }, [markets, selectedCounty, selectedSubCounty]);
 
   return (
     <div className="fixed inset-0 z-[100] bg-stone-900 flex flex-col">
-      {/* Header */}
-      <header className="bg-white px-6 py-4 flex items-center justify-between border-b border-stone-100">
+      {/* 1. Main Header */}
+      <header className="bg-white px-6 py-4 border-b border-stone-100 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 bg-emerald-100 text-emerald-600 rounded-xl flex items-center justify-center">
             <MapPin size={20} />
           </div>
           <div>
-            <h2 className="text-lg font-black text-stone-900 tracking-tight leading-none">Market Locator</h2>
-            <p className="text-[10px] font-bold text-stone-400 uppercase tracking-widest mt-1">Finding the best prices near you</p>
+            <h2 className="text-lg font-black text-stone-900 tracking-tight">Market Locator</h2>
+            <p className="text-xs text-stone-500">Kenya Agricultural Markets • Real-time Prices</p>
           </div>
         </div>
-        <button 
+
+        <button
+          type="button"
+          title="Close Market Locator"
           onClick={onClose}
-          className="p-2 hover:bg-stone-50 rounded-xl transition-all text-stone-400"
+          className="p-2 hover:bg-stone-100 rounded-xl text-stone-400 hover:text-stone-600 transition-all"
         >
           <X size={24} />
         </button>
       </header>
 
-      {/* Map Container */}
-      <div className="flex-1 relative">
-        <APIProvider apiKey={API_KEY} version="weekly">
-          <Map
-            defaultCenter={selectedMarket ? { lat: selectedMarket.lat, lng: selectedMarket.lng } : { lat: -1.286389, lng: 36.817223 }}
-            defaultZoom={selectedMarket ? 12 : 7}
-            mapId="DEMO_MAP_ID"
-            internalUsageAttributionIds={['gmp_mcp_codeassist_v1_aistudio']}
-            style={{ width: '100%', height: '100%' }}
-            gestureHandling={'greedy'}
-            disableDefaultUI={true}
+      {/* 2. Filter Bar */}
+      <div className="bg-white border-b border-stone-100 px-6 py-4 flex flex-wrap gap-4 items-center">
+        <div className="flex items-center gap-2 text-sm font-medium text-stone-600">
+          <Filter size={18} />
+          Filter by Location:
+        </div>
+
+        <select
+        title="county"
+          value={selectedCounty?.code || ''}
+          onChange={(e) => {
+            const val = e.target.value;
+            const county = val ? KENYA_LOCATIONS.find(c => c.code === parseInt(val)) : null;
+            setSelectedCounty(county || null);
+            setSelectedSubCounty(null);
+          }}
+          className="bg-white border border-stone-300 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-emerald-500 min-w-[180px]"
+        >
+          <option value="">All Counties</option>
+          {KENYA_LOCATIONS.map(county => (
+            <option key={county.code} value={county.code}>{county.name}</option>
+          ))}
+        </select>
+
+        {selectedCounty && (
+          <select
+            title="select"
+            value={selectedSubCounty?.name || ''}
+            onChange={(e) => {
+              const sub = selectedCounty.subCounties.find(s => s.name === e.target.value);
+              setSelectedSubCounty(sub || null);
+            }}
+            className="bg-white border border-stone-300 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-emerald-500 min-w-[200px]"
           >
-            {markets.map(market => (
-              <MarketMarker 
-                key={market.id} 
-                market={market} 
-                isSelected={selectedMarket?.id === market.id}
-                onClick={() => setSelectedMarket(market)}
-              />
+            <option value="">All Sub-Counties</option>
+            {selectedCounty.subCounties.map((sub, idx) => (
+              <option key={idx} value={sub.name}>{sub.name}</option>
             ))}
+          </select>
+        )}
 
-            {selectedMarket && (
-              <InfoWindow
-                position={{ lat: selectedMarket.lat, lng: selectedMarket.lng }}
-                onCloseClick={() => setSelectedMarket(null)}
-                pixelOffset={[0, -10]}
-              >
-                <div className="p-2 min-w-[200px] space-y-3">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <h3 className="font-black text-stone-900 text-base leading-tight">{selectedMarket.crop}</h3>
-                      <p className="text-[10px] font-bold text-stone-400 uppercase tracking-widest">{selectedMarket.location}</p>
-                    </div>
-                    <div className={`flex items-center gap-0.5 text-[10px] font-black ${selectedMarket.trend === 'up' ? 'text-emerald-600' : 'text-red-600'}`}>
-                      {selectedMarket.trend === 'up' ? <TrendingUp size={10} /> : <TrendingDown size={10} />}
-                      {selectedMarket.change}
-                    </div>
-                  </div>
-                  
-                  <div className="bg-stone-50 p-3 rounded-xl border border-stone-100">
-                    <p className="text-xs font-bold text-stone-400 uppercase tracking-widest mb-1">Current Price</p>
-                    <p className="text-xl font-black text-stone-900">KES {selectedMarket.price.toLocaleString()}</p>
-                    <p className="text-[10px] font-bold text-stone-400">per {selectedMarket.unit}</p>
-                  </div>
+        <div className="ml-auto text-xs text-emerald-600 font-medium">
+          {filteredMarkets.length} markets found
+        </div>
+      </div>
 
-                  <button 
-                    className="w-full bg-emerald-600 text-white py-2 rounded-xl font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 shadow-lg shadow-emerald-100"
-                    onClick={() => window.open(`https://www.google.com/maps/dir/?api=1&destination=${selectedMarket.lat},${selectedMarket.lng}`, '_blank')}
-                  >
-                    <Navigation size={12} />
-                    Get Directions
-                  </button>
-                </div>
-              </InfoWindow>
-            )}
-          </Map>
-        </APIProvider>
+      {/* 3. Map Content Area */}
+      <div className="flex-1 bg-stone-50 p-6 overflow-y-auto">
+        <div className="max-w-7xl mx-auto h-full">
+          <div className="bg-white rounded-2xl shadow-xl border border-stone-200 overflow-hidden flex flex-col h-full">
+            
+            {/* Map Card Header */}
+            <div className="px-6 py-4 border-b border-stone-100 bg-white flex justify-between items-center">
+              <div>
+                <h3 className="text-sm font-black text-stone-900 uppercase tracking-widest">
+                  National Market Information System
+                </h3>
+                <p className="text-[10px] text-stone-500 font-medium">
+                  Live KAMIS Data • All Kenya Counties
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                </span>
+                <span className="text-[10px] text-emerald-600 font-bold uppercase tracking-tighter">Live Feed</span>
+              </div>
+            </div>
+
+            {/* The Map Iframe */}
+            <div className="flex-1 w-full min-h-[600px] lg:min-h-[750px]">
+              <iframe 
+                src="https://www.google.com/maps/d/embed?mid=11m2bpnb1LkaT_pqNGE74WxeYUsRV_whX&femb=1&ll=-0.36030464245898913%2C37.916193289999995&z=6" 
+                width="100%" 
+                height="100%"
+                className="border-0"
+                allowFullScreen
+                loading="lazy"
+                title="Kenya Market Prices Map"
+              ></iframe>
+            </div>
+            
+            {/* Map Card Footer */}
+            <div className="px-6 py-3 bg-stone-50 border-t border-stone-100 flex justify-between items-center">
+              <p className="text-[10px] text-stone-400">
+                © 2026 Smart Duka Manager • Agricultural Insights
+              </p>
+              <div className="text-[10px] font-bold text-stone-500 uppercase italic">
+                Empowering Kenyan Farmers
+              </div>
+            </div>
+            
+          </div>
+        </div>
       </div>
     </div>
-  );
-};
-
-const MarketMarker: React.FC<{ market: Market, isSelected: boolean, onClick: () => void }> = ({ market, isSelected, onClick }) => {
-  const [markerRef, marker] = useAdvancedMarkerRef();
-
-  return (
-    <AdvancedMarker
-      ref={markerRef}
-      position={{ lat: market.lat, lng: market.lng }}
-      onClick={onClick}
-      title={market.crop}
-    >
-      <Pin 
-        background={isSelected ? '#059669' : '#10b981'} 
-        glyphColor={'#fff'} 
-        borderColor={isSelected ? '#064e3b' : '#065f46'}
-        scale={isSelected ? 1.2 : 1}
-      />
-    </AdvancedMarker>
   );
 };
